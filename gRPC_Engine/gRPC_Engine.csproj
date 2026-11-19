@@ -2,16 +2,21 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <BaseOutputPath>..\Build\</BaseOutputPath>
-    <AssemblyVersion>6.0.0.0</AssemblyVersion>
+    <OutputPath>..\Build\</OutputPath>
+    <AssemblyVersion>10.0.0.0</AssemblyVersion>
     <Description>https://github.com/BHoM/gRPC_Toolkit</Description>
     <Version>5.0.0</Version>
     <Authors>BHoM</Authors>
     <Copyright>Copyright © https://github.com/BHoM</Copyright>
     <RootNamespace>BH.Engine.Adapters.gRPC</RootNamespace>
-    <FileVersion>6.1.0.0</FileVersion>
-	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <FileVersion>10.0.0.0</FileVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Same version as the Google.Protobuf.dll already shipped in the BHoM assemblies folder. -->
+    <PackageReference Include="Google.Protobuf" Version="3.29.1" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\gRPC_oM\gRPC_oM.csproj" />
@@ -19,14 +24,26 @@
 
   <ItemGroup>
     <Reference Include="BHoM">
-      <HintPath>C:\ProgramData\BHoM\Assemblies\BHoM.dll</HintPath>
+      <HintPath>$(ProgramData)\BHoM\Assemblies\BHoM.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="BHoM_Engine">
+      <HintPath>$(ProgramData)\BHoM\Assemblies\BHoM_Engine.dll</HintPath>
+      <Private>false</Private>
+      <SpecificVersion>false</SpecificVersion>
+    </Reference>
+    <Reference Include="Serialiser_Engine">
+      <HintPath>$(ProgramData)\BHoM\Assemblies\Serialiser_Engine.dll</HintPath>
       <Private>false</Private>
       <SpecificVersion>false</SpecificVersion>
     </Reference>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy &quot;$(TargetDir)$(TargetFileName)&quot;  &quot;C:\ProgramData\BHoM\Assemblies&quot; /Y" />
+    <Exec Command="xcopy &quot;$(TargetDir)$(TargetFileName)&quot;  &quot;$(ProgramData)\BHoM\Assemblies&quot; /Y" />
+    <!-- Only copy Google.Protobuf if it is not already in the BHoM assemblies folder, to avoid replacing a version used by other toolkits. -->
+    <Exec Command="if not exist &quot;$(ProgramData)\BHoM\Assemblies\Google.Protobuf.dll&quot; xcopy &quot;$(TargetDir)Google.Protobuf.dll&quot; &quot;$(ProgramData)\BHoM\Assemblies&quot; /Y" />
   </Target>
 
 </Project>
