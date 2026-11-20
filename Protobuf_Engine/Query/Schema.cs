@@ -27,7 +27,7 @@ using System.IO;
 using System.Linq;
 using BH.oM.Base.Attributes;
 
-namespace BH.Engine.Adapters.gRPC
+namespace BH.Engine.Adapters.Protobuf
 {
     public static partial class Query
     {
@@ -35,11 +35,11 @@ namespace BH.Engine.Adapters.gRPC
         /**** Public Methods                            ****/
         /***************************************************/
 
-        [Description("Returns the folder the compiled protobuf schemas (.protoset descriptor sets) are installed in: the gRPC folder of the BHoM resources folder.")]
+        [Description("Returns the folder the compiled protobuf schemas (.protoset descriptor sets) are installed in: the Protobuf folder of the BHoM resources folder.")]
         [Output("folder", "The folder holding the installed schemas.")]
         public static string SchemaFolder()
         {
-            return Path.Combine(BH.Engine.Base.Query.BHoMFolderResources(), "gRPC");
+            return Path.Combine(BH.Engine.Base.Query.BHoMFolderResources(), "Protobuf");
         }
 
         /***************************************************/

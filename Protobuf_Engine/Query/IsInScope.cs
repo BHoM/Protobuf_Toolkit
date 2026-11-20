@@ -25,10 +25,10 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using BH.Engine.Base;
-using BH.oM.Adapters.gRPC;
+using BH.oM.Adapters.Protobuf;
 using BH.oM.Base.Attributes;
 
-namespace BH.Engine.Adapters.gRPC
+namespace BH.Engine.Adapters.Protobuf
 {
     public static partial class Query
     {

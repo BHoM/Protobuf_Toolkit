@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using BH.oM.Base;
 
-namespace BH.oM.Adapters.gRPC
+namespace BH.oM.Adapters.Protobuf
 {
     [Description("A set of assemblies and/or namespaces whose types are written to one shared .proto file.")]
     public class ProtoFileGroup : IObject

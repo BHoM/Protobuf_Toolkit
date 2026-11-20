@@ -29,7 +29,7 @@ using System.Reflection;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 
-namespace BH.Engine.Adapters.gRPC
+namespace BH.Engine.Adapters.Protobuf
 {
     // A compiled set of generated .proto files (a protoc descriptor set), read through the bhom custom options
     // that link messages and fields back to the C# types and properties they represent.

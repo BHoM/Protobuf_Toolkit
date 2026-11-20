@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using BH.oM.Base;
 
-namespace BH.oM.Adapters.gRPC
+namespace BH.oM.Adapters.Protobuf
 {
     [Description("A generated Protocol Buffers (.proto) file.")]
     public class ProtoFile : IObject

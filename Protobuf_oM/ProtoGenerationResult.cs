@@ -20,29 +20,27 @@
  * along with this code. If not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
 using System.ComponentModel;
 using BH.oM.Base;
 
-namespace BH.oM.Adapters.gRPC
+namespace BH.oM.Adapters.Protobuf
 {
-    [Description("Records how a property typed as an interface or abstract class, with implementations in other files, was handled during generation.")]
-    public class PropertyResolution : IObject
+    [Description("Output of a Protocol Buffers generation run.")]
+    public class ProtoGenerationResult : IObject
     {
         /***************************************************/
         /**** Properties                                ****/
         /***************************************************/
 
-        [Description("Full name of the C# type that owns the property.")]
-        public virtual string TypeName { get; set; } = "";
+        [Description("The generated .proto files, including options.proto declaring the custom options that link messages and fields to the C# types and properties.")]
+        public virtual List<ProtoFile> Files { get; set; } = new List<ProtoFile>();
 
-        [Description("Name of the property.")]
-        public virtual string PropertyName { get; set; } = "";
+        [Description("Properties typed as interfaces or abstract classes with implementations in other files, and how each was handled.")]
+        public virtual List<PropertyResolution> Resolutions { get; set; } = new List<PropertyResolution>();
 
-        [Description("Full name of the interface or abstract class the property is typed as.")]
-        public virtual string UnionTypeName { get; set; } = "";
-
-        [Description("How the property was handled.")]
-        public virtual UnionResolution Resolution { get; set; } = UnionResolution.Undefined;
+        [Description("Import cycles between the generated files, each given as the list of file paths involved. Empty when the files can be compiled.")]
+        public virtual List<List<string>> ImportCycles { get; set; } = new List<List<string>>();
 
         /***************************************************/
     }

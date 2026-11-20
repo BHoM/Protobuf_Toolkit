@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using BH.oM.Base;
 
-namespace BH.oM.Adapters.gRPC
+namespace BH.oM.Adapters.Protobuf
 {
     [Description("Settings controlling which oM types are turned into Protocol Buffers (.proto) definitions and how they are split into files.")]
     public class ProtoConfig : IObject

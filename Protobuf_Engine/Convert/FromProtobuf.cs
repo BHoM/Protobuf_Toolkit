@@ -32,7 +32,7 @@ using BH.oM.Base.Attributes;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 
-namespace BH.Engine.Adapters.gRPC
+namespace BH.Engine.Adapters.Protobuf
 {
     public static partial class Convert
     {

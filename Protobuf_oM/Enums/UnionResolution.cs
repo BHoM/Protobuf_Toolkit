@@ -22,7 +22,7 @@
 
 using System.ComponentModel;
 
-namespace BH.oM.Adapters.gRPC
+namespace BH.oM.Adapters.Protobuf
 {
     [Description("How a property typed as an interface or abstract class with implementations in other files is represented.")]
     public enum UnionResolution

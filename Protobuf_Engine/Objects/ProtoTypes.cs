@@ -25,7 +25,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace BH.Engine.Adapters.gRPC
+namespace BH.Engine.Adapters.Protobuf
 {
     // Type classification shared by the generator, the writer and the reader, so all three agree on how a C# type is encoded.
     internal static class ProtoTypes

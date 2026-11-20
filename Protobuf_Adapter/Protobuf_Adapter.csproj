@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>gRPC_Adapter</AssemblyName>
+    <AssemblyName>Protobuf_Adapter</AssemblyName>
     <BaseOutputPath>..\Build\</BaseOutputPath>
     <AssemblyVersion>6.0.0.0</AssemblyVersion>
-    <Description>https://github.com/BHoM/gRPC_Toolkit</Description>
+    <Description>https://github.com/BHoM/Protobuf_Toolkit</Description>
     <Version>5.0.0</Version>
     <Authors>BHoM</Authors>
     <Copyright>Copyright © https://github.com/BHoM</Copyright>
-    <RootNamespace>BH.Adapter.gRPC</RootNamespace>
+    <RootNamespace>BH.Adapter.Protobuf</RootNamespace>
     <FileVersion>6.1.0.0</FileVersion>
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\gRPC_Engine\gRPC_Engine.csproj" />
-    <ProjectReference Include="..\gRPC_oM\gRPC_oM.csproj" />
+    <ProjectReference Include="..\Protobuf_Engine\Protobuf_Engine.csproj" />
+    <ProjectReference Include="..\Protobuf_oM\Protobuf_oM.csproj" />
   </ItemGroup>
 
   <ItemGroup>
