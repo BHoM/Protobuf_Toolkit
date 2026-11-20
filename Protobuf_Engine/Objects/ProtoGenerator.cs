@@ -37,6 +37,8 @@ namespace BH.Engine.Adapters.Protobuf
     // - Interfaces and abstract classes become union messages with a oneof over their implementations.
     // - Types are split into one file per assembly, or per ProtoFileGroup. Unions whose implementations live in other files
     //   would create circular imports, so they are defined on the consumer side, given an 'Any other' slot, or skipped.
+    //   ProtoConfig.OpenUnionTypes are always google.protobuf.Any (with the any_of option naming the interface), and
+    //   ProtoConfig.ClosedUnionTypes are always the union of their own file, without an 'other' slot.
     // - Field numbers come from the registry in the ProtoSchemaMap and are never changed once assigned.
     internal class ProtoGenerator
     {
@@ -82,6 +84,7 @@ namespace BH.Engine.Adapters.Protobuf
         private FileBuilder m_Current;
         private Type m_CurrentOwner;
         private PropertyInfo m_CurrentProperty;
+        private string m_CurrentAnyOf; // Interface of the google.protobuf.Any field being generated, written as the any_of option.
 
         /***************************************************/
         /**** Constructors                              ****/
@@ -268,7 +271,21 @@ namespace BH.Engine.Adapters.Protobuf
 
         /***************************************************/
 
-        private string Option(string name) => $"(.{m_Config.RootPackage}.{name})";
+        // Reference to one option of the options messages, e.g. (.bhom.message_info).csharp_type.
+        private string Option(string kind, string name) => $"(.{m_Config.RootPackage}.{kind}).{name}";
+
+        private string MessageOption(string name) => Option("message_info", name);
+
+        private string EnumOption(string name) => Option("enum_info", name);
+
+        // Options of a field: the C# property, and for google.protobuf.Any fields generated from an interface, the interface.
+        private string FieldOptions(string property, string anyOf)
+        {
+            if (string.IsNullOrEmpty(anyOf))
+                return $"[{Option("field_info", "property")} = {Quote(property)}]";
+
+            return $"[(.{m_Config.RootPackage}.field_info) = {{ property: {Quote(property)} any_of: {Quote(anyOf)} }}]";
+        }
 
         /***************************************************/
 
@@ -288,21 +305,40 @@ namespace BH.Engine.Adapters.Protobuf
             sb.AppendLine();
             sb.AppendLine("import \"google/protobuf/descriptor.proto\";");
             sb.AppendLine();
-            sb.AppendLine("extend google.protobuf.MessageOptions {");
+            sb.AppendLine("// Options on messages, e.g. option (.bhom.message_info).csharp_type = \"BH.oM.Structure.Elements.Bar\";");
+            sb.AppendLine("message MessageInfo {");
             sb.AppendLine("  // Full name of the C# type the message represents. For a union, the interface or abstract class.");
-            sb.AppendLine($"  string csharp_type = {ProtoSchema.CSharpTypeOption};");
+            sb.AppendLine($"  string csharp_type = {ProtoSchema.CSharpTypeNumber};");
             sb.AppendLine("  // Members whose field numbers are reserved, as <property or type name>=<number>, so the numbers are never reused.");
-            sb.AppendLine($"  repeated string reserved_member = {ProtoSchema.ReservedMemberOption};");
+            sb.AppendLine($"  repeated string reserved_member = {ProtoSchema.ReservedMemberNumber};");
+            sb.AppendLine("}");
+            sb.AppendLine();
+            sb.AppendLine("// Options on fields, e.g. [(.bhom.field_info).property = \"Start\"].");
+            sb.AppendLine("message FieldInfo {");
+            sb.AppendLine("  // Name of the C# property the field represents.");
+            sb.AppendLine($"  string property = {ProtoSchema.PropertyNumber};");
+            sb.AppendLine("  // For google.protobuf.Any fields: full name of the C# interface or abstract class the values implement.");
+            sb.AppendLine("  // Values of other types are ignored by the BHoM reader.");
+            sb.AppendLine($"  string any_of = {ProtoSchema.AnyOfNumber};");
+            sb.AppendLine("}");
+            sb.AppendLine();
+            sb.AppendLine("// Options on enums, e.g. option (.bhom.enum_info).csharp_enum = \"BH.oM.Structure.Elements.BarFEAType\";");
+            sb.AppendLine("message EnumInfo {");
+            sb.AppendLine("  // Full name of the C# enum the enum represents.");
+            sb.AppendLine($"  string csharp_enum = {ProtoSchema.CSharpEnumNumber};");
+            sb.AppendLine("}");
+            sb.AppendLine();
+            sb.AppendLine("// One number for each kind of options, so new options never need a new number.");
+            sb.AppendLine("extend google.protobuf.MessageOptions {");
+            sb.AppendLine($"  MessageInfo message_info = {ProtoSchema.InfoOption};");
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("extend google.protobuf.FieldOptions {");
-            sb.AppendLine("  // Name of the C# property the field represents.");
-            sb.AppendLine($"  string property = {ProtoSchema.PropertyOption};");
+            sb.AppendLine($"  FieldInfo field_info = {ProtoSchema.InfoOption};");
             sb.AppendLine("}");
             sb.AppendLine();
             sb.AppendLine("extend google.protobuf.EnumOptions {");
-            sb.AppendLine("  // Full name of the C# enum the enum represents.");
-            sb.AppendLine($"  string csharp_enum = {ProtoSchema.CSharpEnumOption};");
+            sb.AppendLine($"  EnumInfo enum_info = {ProtoSchema.InfoOption};");
             sb.AppendLine("}");
 
             return new ProtoFile
@@ -324,7 +360,7 @@ namespace BH.Engine.Adapters.Protobuf
                 if (comment != null)
                     sb.AppendLine($"  // {comment}");
                 sb.AppendLine($"  reserved {member.Value};");
-                sb.AppendLine($"  option {Option("reserved_member")} = {Quote(member.Key + "=" + member.Value)};");
+                sb.AppendLine($"  option {MessageOption("reserved_member")} = {Quote(member.Key + "=" + member.Value)};");
             }
         }
 
@@ -436,6 +472,22 @@ namespace BH.Engine.Adapters.Protobuf
         {
             string home = FileKey(type);
             return ProtoTypes.IsUnion(type) && !Subtypes(type).Any(s => FileKey(s) == home);
+        }
+
+        /***************************************************/
+
+        // Interfaces always exchanged as google.protobuf.Any, e.g. IFragment.
+        private bool IsOpenUnion(Type type)
+        {
+            return ProtoTypes.IsUnion(type) && m_Config.OpenUnionTypes != null && m_Config.OpenUnionTypes.Contains(type.FullName);
+        }
+
+        /***************************************************/
+
+        // Interfaces always exchanged as the union of their own file, without an 'other' slot, e.g. IGeometry.
+        private bool IsClosedUnion(Type type)
+        {
+            return ProtoTypes.IsUnion(type) && m_Config.ClosedUnionTypes != null && m_Config.ClosedUnionTypes.Contains(type.FullName);
         }
 
         /***************************************************/
@@ -574,7 +626,7 @@ namespace BH.Engine.Adapters.Protobuf
             StringBuilder sb = new StringBuilder();
             Comment(sb, type.GetCustomAttribute<DescriptionAttribute>()?.Description, "");
             sb.AppendLine($"message {Name(type)} {{");
-            sb.AppendLine($"  option {Option("csharp_type")} = {Quote(type.FullName)};");
+            sb.AppendLine($"  option {MessageOption("csharp_type")} = {Quote(type.FullName)};");
 
             HashSet<string> current = new HashSet<string>();
             m_CurrentOwner = type;
@@ -589,6 +641,7 @@ namespace BH.Engine.Adapters.Protobuf
 
                 string fieldType;
                 string note;
+                m_CurrentAnyOf = null;
                 try
                 {
                     fieldType = FieldType(property.PropertyType, out note);
@@ -605,7 +658,7 @@ namespace BH.Engine.Adapters.Protobuf
                 string unit = QuantityText(property);
                 string trailing = string.Join(" ", new[] { unit, note }.Where(x => !string.IsNullOrEmpty(x)));
                 Comment(sb, property.GetCustomAttribute<DescriptionAttribute>()?.Description, "  ");
-                sb.AppendLine($"  {fieldType} {Snake(property.Name)} = {number} [{Option("property")} = {Quote(property.Name)}];{(trailing.Length > 0 ? "  // " + trailing : "")}");
+                sb.AppendLine($"  {fieldType} {Snake(property.Name)} = {number} {FieldOptions(property.Name, m_CurrentAnyOf)};{(trailing.Length > 0 ? "  // " + trailing : "")}");
             }
             m_CurrentOwner = null;
             m_CurrentProperty = null;
@@ -627,7 +680,7 @@ namespace BH.Engine.Adapters.Protobuf
             Comment(sb, type.GetCustomAttribute<DescriptionAttribute>()?.Description, "");
             sb.AppendLine($"// C# {(type.IsInterface ? "interface" : "abstract class")}: {type.FullName}");
             sb.AppendLine($"message {Name(type)} {{");
-            sb.AppendLine($"  option {Option("csharp_type")} = {Quote(type.FullName)};");
+            sb.AppendLine($"  option {MessageOption("csharp_type")} = {Quote(type.FullName)};");
             sb.AppendLine("  oneof value {");
 
             HashSet<string> slots = new HashSet<string>();
@@ -646,8 +699,16 @@ namespace BH.Engine.Adapters.Protobuf
             if (external.Count > 0)
             {
                 List<string> files = external.Select(s => FileOf(s).Path).Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
-                sb.AppendLine($"    // Implementations defined in other files ({external.Count}, in {string.Join(", ", files)})");
-                sb.AppendLine($"    {WellKnown("google.protobuf.Any", "google/protobuf/any.proto")} other = {ProtoTypes.OtherFieldNumber};");
+                if (IsClosedUnion(type))
+                {
+                    // Closed union: only the implementations of this file are exchanged.
+                    sb.AppendLine($"    // Implementations defined in other files are not exchanged ({external.Count}, in {string.Join(", ", files)})");
+                }
+                else
+                {
+                    sb.AppendLine($"    // Implementations defined in other files ({external.Count}, in {string.Join(", ", files)})");
+                    sb.AppendLine($"    {WellKnown("google.protobuf.Any", "google/protobuf/any.proto")} other = {ProtoTypes.OtherFieldNumber};");
+                }
             }
 
             sb.AppendLine("  }");
@@ -684,7 +745,7 @@ namespace BH.Engine.Adapters.Protobuf
             sb.AppendLine($"// Union of {union.FullName}, declared in {FileOf(union).Path}.");
             sb.AppendLine("// Defined in this file because all implementations live in this file and its dependencies, which the interface's own file cannot import.");
             sb.AppendLine($"message {name} {{");
-            sb.AppendLine($"  option {Option("csharp_type")} = {Quote(union.FullName)};");
+            sb.AppendLine($"  option {MessageOption("csharp_type")} = {Quote(union.FullName)};");
             sb.AppendLine("  oneof value {");
 
             HashSet<string> slots = new HashSet<string>();
@@ -710,7 +771,7 @@ namespace BH.Engine.Adapters.Protobuf
             StringBuilder sb = new StringBuilder();
             Comment(sb, type.GetCustomAttribute<DescriptionAttribute>()?.Description, "");
             sb.AppendLine($"enum {Name(type)} {{");
-            sb.AppendLine($"  option {Option("csharp_enum")} = {Quote(type.FullName)};");
+            sb.AppendLine($"  option {EnumOption("csharp_enum")} = {Quote(type.FullName)};");
 
             string prefix = Snake(Name(type)).ToUpperInvariant();
             string[] names = Enum.GetNames(type);
@@ -815,10 +876,28 @@ namespace BH.Engine.Adapters.Protobuf
                     return WellKnown("google.protobuf.Any", "google/protobuf/any.proto");
                 }
 
+                if (IsOpenUnion(type))
+                {
+                    Resolve(type, UnionResolution.Any);
+                    foreach (Type subtype in Subtypes(type))
+                        Enqueue(subtype);
+                    m_CurrentAnyOf = type.FullName;
+                    return WellKnown("google.protobuf.Any", "google/protobuf/any.proto");
+                }
+
+                if (IsClosedUnion(type))
+                {
+                    if (IsCrossFileUnion(type))
+                        Resolve(type, UnionResolution.Closed);
+                    Enqueue(type);
+                    return Reference(type);
+                }
+
                 if (ProtoTypes.IsUnion(type) && Subtypes(type).Count == 0)
                 {
                     Resolve(type, UnionResolution.Any);
-                    note = $"any {type.Name} (no implementations in scope)";
+                    note = "no implementations in scope";
+                    m_CurrentAnyOf = type.FullName;
                     return WellKnown("google.protobuf.Any", "google/protobuf/any.proto");
                 }
 
@@ -841,7 +920,7 @@ namespace BH.Engine.Adapters.Protobuf
                         Resolve(type, UnionResolution.Any);
                         foreach (Type subtype in Subtypes(type))
                             Enqueue(subtype);
-                        note = $"any {type.Name}";
+                        m_CurrentAnyOf = type.FullName;
                         return WellKnown("google.protobuf.Any", "google/protobuf/any.proto");
                     }
 

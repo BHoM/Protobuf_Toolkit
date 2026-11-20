@@ -354,7 +354,8 @@ namespace BH.Engine.Adapters.Protobuf
                 return any == null ? null : Encode(output => WriteBytes(output, other.FieldNumber, any));
             }
 
-            Base.Compute.RecordError($"{value.GetType().FullName} has no slot in the union {union.FullName}.");
+            // Closed unions, e.g. IGeometry, only cover the implementations of their own file.
+            Base.Compute.RecordWarning($"{value.GetType().FullName} has no slot in the union {union.FullName} and has been left out.");
             return null;
         }
 

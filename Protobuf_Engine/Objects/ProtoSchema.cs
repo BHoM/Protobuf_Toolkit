@@ -39,27 +39,31 @@ namespace BH.Engine.Adapters.Protobuf
         /**** Custom options                            ****/
         /***************************************************/
 
-        // Numbers of the custom options declared in the generated <root>/options.proto.
-        internal const int CSharpTypeOption = 50001;
-        internal const int ReservedMemberOption = 50002;
-        internal const int PropertyOption = 50001;
-        internal const int CSharpEnumOption = 50001;
+        // Number of the custom options declared in the generated <root>/options.proto. All options of one kind (message, field, enum)
+        // live in one options message, so the same single number is used for all three kinds and new options never need a new number.
+        internal const int InfoOption = 50000;
 
-        // option (bhom.csharp_type) = "BH.oM.Structure.Elements.Bar";
-        internal static readonly Extension<MessageOptions, string> CSharpType =
-            new Extension<MessageOptions, string>(CSharpTypeOption, FieldCodec.ForString(WireFormat.MakeTag(CSharpTypeOption, WireFormat.WireType.LengthDelimited)));
+        // Field numbers inside the options messages MessageInfo, FieldInfo and EnumInfo.
+        internal const int CSharpTypeNumber = 1;      // MessageInfo.csharp_type
+        internal const int ReservedMemberNumber = 2;  // MessageInfo.reserved_member
+        internal const int PropertyNumber = 1;        // FieldInfo.property
+        internal const int AnyOfNumber = 2;           // FieldInfo.any_of
+        internal const int CSharpEnumNumber = 1;      // EnumInfo.csharp_enum
 
-        // option (bhom.reserved_member) = "Fragments=3";
-        internal static readonly RepeatedExtension<MessageOptions, string> ReservedMember =
-            new RepeatedExtension<MessageOptions, string>(ReservedMemberOption, FieldCodec.ForString(WireFormat.MakeTag(ReservedMemberOption, WireFormat.WireType.LengthDelimited)));
+        // The option values are messages without generated C# classes. They are read as raw bytes, as a message and bytes share the
+        // length-delimited wire type, and collected as a repeated field because protoc may write one message option as several chunks.
 
-        // [(bhom.property) = "Start"]
-        internal static readonly Extension<FieldOptions, string> Property =
-            new Extension<FieldOptions, string>(PropertyOption, FieldCodec.ForString(WireFormat.MakeTag(PropertyOption, WireFormat.WireType.LengthDelimited)));
+        // option (.bhom.message_info) = { csharp_type: "BH.oM.Structure.Elements.Bar" };
+        internal static readonly RepeatedExtension<MessageOptions, ByteString> MessageInfo =
+            new RepeatedExtension<MessageOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
 
-        // option (bhom.csharp_enum) = "BH.oM.Structure.Elements.BarFEAType";
-        internal static readonly Extension<EnumOptions, string> CSharpEnum =
-            new Extension<EnumOptions, string>(CSharpEnumOption, FieldCodec.ForString(WireFormat.MakeTag(CSharpEnumOption, WireFormat.WireType.LengthDelimited)));
+        // [(.bhom.field_info) = { property: "Start" }]
+        internal static readonly RepeatedExtension<FieldOptions, ByteString> FieldInfo =
+            new RepeatedExtension<FieldOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
+
+        // option (.bhom.enum_info) = { csharp_enum: "BH.oM.Structure.Elements.BarFEAType" };
+        internal static readonly RepeatedExtension<EnumOptions, ByteString> EnumInfo =
+            new RepeatedExtension<EnumOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
 
         internal const string AnyMessageName = "google.protobuf.Any";
 
@@ -82,7 +86,7 @@ namespace BH.Engine.Adapters.Protobuf
         public static ProtoSchema FromBytes(byte[] bytes, string filePath = "")
         {
             FileDescriptorSet set = FileDescriptorSet.Parser.ParseFrom(bytes);
-            ExtensionRegistry registry = new ExtensionRegistry { CSharpType, ReservedMember, Property, CSharpEnum };
+            ExtensionRegistry registry = new ExtensionRegistry { MessageInfo, FieldInfo, EnumInfo };
 
             // protoc writes the files in dependency order, which is the order BuildFromByteStrings needs.
             IReadOnlyList<FileDescriptor> files = FileDescriptor.BuildFromByteStrings(set.File.Select(f => f.ToByteString()), registry);
@@ -179,16 +183,60 @@ namespace BH.Engine.Adapters.Protobuf
 
         public static string CSharpTypeOf(MessageDescriptor message)
         {
-            MessageOptions options = message?.GetOptions();
-            return options != null && options.HasExtension(CSharpType) ? options.GetExtension(CSharpType) : null;
+            if (message == null)
+                return null;
+
+            return m_CSharpTypes.GetOrAdd(message, m => InfoStrings(m.GetOptions()?.GetExtension(MessageInfo), CSharpTypeNumber).LastOrDefault());
         }
 
         /***************************************************/
 
         public static string PropertyOf(FieldDescriptor field)
         {
-            FieldOptions options = field?.GetOptions();
-            return options != null && options.HasExtension(Property) ? options.GetExtension(Property) : null;
+            if (field == null)
+                return null;
+
+            return m_Properties.GetOrAdd(field, f => InfoStrings(f.GetOptions()?.GetExtension(FieldInfo), PropertyNumber).LastOrDefault());
+        }
+
+        /***************************************************/
+
+        // The interface or abstract class the values of a google.protobuf.Any field implement, from (bhom.field_info).any_of.
+        public static string AnyOfOf(FieldDescriptor field)
+        {
+            return field == null ? null : InfoStrings(field.GetOptions()?.GetExtension(FieldInfo), AnyOfNumber).LastOrDefault();
+        }
+
+        /***************************************************/
+
+        public static List<string> ReservedMembersOf(MessageDescriptor message)
+        {
+            return message == null ? new List<string>() : InfoStrings(message.GetOptions()?.GetExtension(MessageInfo), ReservedMemberNumber);
+        }
+
+        /***************************************************/
+
+        // String fields with a given number in the chunks of an options message, in order.
+        private static List<string> InfoStrings(IEnumerable<ByteString> chunks, int number)
+        {
+            List<string> result = new List<string>();
+            if (chunks == null)
+                return result; // An absent repeated option comes back as null.
+
+            foreach (ByteString chunk in chunks)
+            {
+                CodedInputStream input = chunk.CreateCodedInput();
+                uint tag;
+                while ((tag = input.ReadTag()) != 0)
+                {
+                    if (WireFormat.GetTagFieldNumber(tag) == number && WireFormat.GetTagWireType(tag) == WireFormat.WireType.LengthDelimited)
+                        result.Add(input.ReadString());
+                    else
+                        input.SkipLastField();
+                }
+            }
+
+            return result;
         }
 
         /***************************************************/
@@ -268,11 +316,7 @@ namespace BH.Engine.Adapters.Protobuf
                         numbers[member] = field.FieldNumber;
                 }
 
-                IEnumerable<string> reservedMembers = message.GetOptions()?.GetExtension(ReservedMember);
-                if (reservedMembers == null)
-                    continue; // An absent repeated option comes back as null.
-
-                foreach (string reserved in reservedMembers)
+                foreach (string reserved in ReservedMembersOf(message))
                 {
                     // Member names can contain '=', e.g. generic type names with assembly versions, so split on the last one.
                     int index = reserved.LastIndexOf('=');
@@ -288,6 +332,10 @@ namespace BH.Engine.Adapters.Protobuf
         /***************************************************/
 
         private static readonly ConcurrentDictionary<string, (DateTime Timestamp, ProtoSchema Schema)> m_Cache = new ConcurrentDictionary<string, (DateTime, ProtoSchema)>();
+
+        private static readonly ConcurrentDictionary<MessageDescriptor, string> m_CSharpTypes = new ConcurrentDictionary<MessageDescriptor, string>();
+
+        private static readonly ConcurrentDictionary<FieldDescriptor, string> m_Properties = new ConcurrentDictionary<FieldDescriptor, string>();
 
         private readonly ConcurrentDictionary<MessageDescriptor, Type> m_Types = new ConcurrentDictionary<MessageDescriptor, Type>();
 

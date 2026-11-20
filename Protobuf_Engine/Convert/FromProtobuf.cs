@@ -165,7 +165,7 @@ namespace BH.Engine.Adapters.Protobuf
         {
             if (type.FullName == ProtoTypes.FragmentSetName)
             {
-                object fragment = ReadUnion(input.ReadBytes().ToByteArray(), field.MessageType, schema);
+                object fragment = ReadUnion(input.ReadBytes().ToByteArray(), field.MessageType, schema, typeof(IFragment));
                 if (fragment != null)
                     items.Add(fragment);
                 return;
@@ -247,7 +247,7 @@ namespace BH.Engine.Adapters.Protobuf
             type = Nullable.GetUnderlyingType(type) ?? type;
 
             if (ProtoTypes.IsAnyValue(type))
-                return ReadAny(input.ReadBytes().ToByteArray(), schema);
+                return ReadAny(input.ReadBytes().ToByteArray(), schema, type);
 
             if (TryReadScalar(input, type, out object value))
                 return value;
@@ -264,9 +264,9 @@ namespace BH.Engine.Adapters.Protobuf
             MessageDescriptor message = field.MessageType;
             byte[] bytes = input.ReadBytes().ToByteArray();
             if (ProtoSchema.IsAny(message))
-                return ReadAny(bytes, schema);
+                return ReadAny(bytes, schema, type);
             if (ProtoSchema.IsUnion(message))
-                return ReadUnion(bytes, message, schema);
+                return ReadUnion(bytes, message, schema, type);
 
             return ReadMessage(bytes, type, message, schema);
         }
@@ -350,10 +350,10 @@ namespace BH.Engine.Adapters.Protobuf
         /**** Private Methods - Unions and Any          ****/
         /***************************************************/
 
-        private static object ReadUnion(byte[] bytes, MessageDescriptor union, ProtoSchema schema)
+        private static object ReadUnion(byte[] bytes, MessageDescriptor union, ProtoSchema schema, Type expected = null)
         {
             if (ProtoSchema.IsAny(union))
-                return ReadAny(bytes, schema);
+                return ReadAny(bytes, schema, expected);
 
             object result = null;
             CodedInputStream input = new CodedInputStream(bytes);
@@ -371,7 +371,7 @@ namespace BH.Engine.Adapters.Protobuf
                 byte[] content = input.ReadBytes().ToByteArray();
                 if (ProtoSchema.IsAny(field.MessageType))
                 {
-                    result = ReadAny(content, schema);
+                    result = ReadAny(content, schema, expected ?? schema.TypeOf(union));
                     continue;
                 }
 
@@ -390,7 +390,25 @@ namespace BH.Engine.Adapters.Protobuf
 
         /***************************************************/
 
-        private static object ReadAny(byte[] bytes, ProtoSchema schema)
+        // Reads a google.protobuf.Any and checks that its value fits where it is read into, e.g. an IFragment for a fragment.
+        // A value of another type, e.g. written by another client, is ignored with a warning rather than failing when it is set.
+        private static object ReadAny(byte[] bytes, ProtoSchema schema, Type expected = null)
+        {
+            object value = ReadAnyValue(bytes, schema);
+            if (value == null || expected == null)
+                return value;
+
+            expected = Nullable.GetUnderlyingType(expected) ?? expected;
+            if (expected.IsInstanceOfType(value))
+                return value;
+
+            Base.Compute.RecordWarning($"A google.protobuf.Any holding a {value.GetType().FullName} cannot be read as a {expected.FullName} and has been ignored.");
+            return null;
+        }
+
+        /***************************************************/
+
+        private static object ReadAnyValue(byte[] bytes, ProtoSchema schema)
         {
             SplitAny(bytes, out string typeUrl, out byte[] content);
             string messageName = typeUrl.Substring(typeUrl.LastIndexOf('/') + 1);
@@ -632,9 +650,17 @@ namespace BH.Engine.Adapters.Protobuf
         {
             if (type.FullName == ProtoTypes.FragmentSetName)
             {
-                IList fragments = (IList)Activator.CreateInstance(type);
-                foreach (object fragment in items)
+                // A FragmentSet holds one fragment per type: a later fragment of the same type replaces the earlier one.
+                FragmentSet fragments = new FragmentSet();
+                foreach (IFragment fragment in items.OfType<IFragment>())
+                {
+                    if (fragments.Contains(fragment.GetType()))
+                    {
+                        Base.Compute.RecordWarning($"More than one fragment of type {fragment.GetType().FullName} was found. The last one has been kept.");
+                        fragments.Remove(fragment.GetType());
+                    }
                     fragments.Add(fragment);
+                }
                 return fragments;
             }
 

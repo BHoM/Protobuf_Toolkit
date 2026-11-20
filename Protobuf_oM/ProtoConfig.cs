@@ -51,6 +51,14 @@ namespace BH.oM.Adapters.Protobuf
             "The field number of a skipped property is reserved so the property can be added later without breaking compatibility.")]
         public virtual List<string> SkippedUnionTypes { get; set; } = new List<string>();
 
+        [Description("Full names of interfaces or abstract classes that are always exchanged as google.protobuf.Any, for example BH.oM.Base.IFragment. \n" +
+            "Use this for open sets of implementations that live in many files, including other toolkits. The field is marked with the any_of option naming the interface.")]
+        public virtual List<string> OpenUnionTypes { get; set; } = new List<string>();
+
+        [Description("Full names of interfaces or abstract classes that are always exchanged as the typed union of their own file, for example BH.oM.Geometry.IGeometry. \n" +
+            "Implementations in other files have no slot and are not exchanged.")]
+        public virtual List<string> ClosedUnionTypes { get; set; } = new List<string>();
+
         [Description("If true, a property typed as an interface whose implementations live in the file of the property owner and its dependencies gets a union defined in the owner's file, rather than falling back to google.protobuf.Any.")]
         public virtual bool ConsumerSideUnions { get; set; } = true;
 

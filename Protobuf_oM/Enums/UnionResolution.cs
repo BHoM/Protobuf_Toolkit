@@ -36,6 +36,8 @@ namespace BH.oM.Adapters.Protobuf
         [Description("A plain google.protobuf.Any.")]
         Any,
         [Description("The property is left out and its field number reserved.")]
-        Skipped
+        Skipped,
+        [Description("The union of the interface's own file, without a google.protobuf.Any slot: implementations in other files are not exchanged.")]
+        Closed
     }
 }
