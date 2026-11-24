@@ -21,6 +21,7 @@
  */
 
 using System.ComponentModel;
+using BH.Engine.Adapters.Protobuf.Objects;
 using BH.oM.Base.Attributes;
 
 namespace BH.Engine.Adapters.Protobuf

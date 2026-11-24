@@ -25,7 +25,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace BH.Engine.Adapters.Protobuf
+namespace BH.Engine.Adapters.Protobuf.Objects
 {
     // Type classification shared by the generator, the writer and the reader, so all three agree on how a C# type is encoded.
     internal static class ProtoTypes
@@ -35,17 +35,17 @@ namespace BH.Engine.Adapters.Protobuf
         /***************************************************/
 
         // Field number of the google.protobuf.Any slot in a union, used for implementations without a typed slot.
-        internal const int OtherFieldNumber = 50000;
+        public const int OtherFieldNumber = 50000;
 
-        internal const string TypeUrlPrefix = "type.googleapis.com/";
+        public const string TypeUrlPrefix = "type.googleapis.com/";
 
-        internal const string FragmentSetName = "BH.oM.Base.FragmentSet";
+        public const string FragmentSetName = "BH.oM.Base.FragmentSet";
 
-        internal const string FragmentInterfaceName = "BH.oM.Base.IFragment";
-        internal const string GeometryInterfaceName = "BH.oM.Geometry.IGeometry";
-        internal const string BHoMObjectInterfaceName = "BH.oM.Base.IBHoMObject";
+        public const string FragmentInterfaceName = "BH.oM.Base.IFragment";
+        public const string GeometryInterfaceName = "BH.oM.Geometry.IGeometry";
+        public const string BHoMObjectInterfaceName = "BH.oM.Base.IBHoMObject";
 
-        internal static readonly string[] BaseProperties = { "BHoM_Guid", "Name", "Fragments", "Tags", "CustomData" };
+        public static readonly string[] BaseProperties = { "BHoM_Guid", "Name", "Fragments", "Tags", "CustomData" };
 
         /***************************************************/
         /**** Internal Methods                          ****/

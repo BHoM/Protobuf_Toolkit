@@ -23,17 +23,16 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 
-namespace BH.Engine.Adapters.Protobuf
+namespace BH.Engine.Adapters.Protobuf.Objects
 {
-    // A compiled set of generated .proto files (a protoc descriptor set), read through the bhom custom options
-    // that link messages and fields back to the C# types and properties they represent.
-    internal class ProtoSchema
+    [Description("A compiled set of generated .proto files (a protoc descriptor set), read through the bhom custom options that link messages and fields back to the C# types and properties they represent.")]
+    public class ProtoSchema
     {
         /***************************************************/
         /**** Custom options                            ****/
@@ -41,31 +40,31 @@ namespace BH.Engine.Adapters.Protobuf
 
         // Number of the custom options declared in the generated <root>/options.proto. All options of one kind (message, field, enum)
         // live in one options message, so the same single number is used for all three kinds and new options never need a new number.
-        internal const int InfoOption = 50000;
+        public const int InfoOption = 50000;
 
         // Field numbers inside the options messages MessageInfo, FieldInfo and EnumInfo.
-        internal const int CSharpTypeNumber = 1;      // MessageInfo.csharp_type
-        internal const int ReservedMemberNumber = 2;  // MessageInfo.reserved_member
-        internal const int PropertyNumber = 1;        // FieldInfo.property
-        internal const int AnyOfNumber = 2;           // FieldInfo.any_of
-        internal const int CSharpEnumNumber = 1;      // EnumInfo.csharp_enum
+        public const int CSharpTypeNumber = 1;      // MessageInfo.csharp_type
+        public const int ReservedMemberNumber = 2;  // MessageInfo.reserved_member
+        public const int PropertyNumber = 1;        // FieldInfo.property
+        public const int AnyOfNumber = 2;           // FieldInfo.any_of
+        public const int CSharpEnumNumber = 1;      // EnumInfo.csharp_enum
 
         // The option values are messages without generated C# classes. They are read as raw bytes, as a message and bytes share the
         // length-delimited wire type, and collected as a repeated field because protoc may write one message option as several chunks.
 
         // option (.bhom.message_info) = { csharp_type: "BH.oM.Structure.Elements.Bar" };
-        internal static readonly RepeatedExtension<MessageOptions, ByteString> MessageInfo =
+        public static readonly RepeatedExtension<MessageOptions, ByteString> MessageInfo =
             new RepeatedExtension<MessageOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
 
         // [(.bhom.field_info) = { property: "Start" }]
-        internal static readonly RepeatedExtension<FieldOptions, ByteString> FieldInfo =
+        public static readonly RepeatedExtension<FieldOptions, ByteString> FieldInfo =
             new RepeatedExtension<FieldOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
 
         // option (.bhom.enum_info) = { csharp_enum: "BH.oM.Structure.Elements.BarFEAType" };
-        internal static readonly RepeatedExtension<EnumOptions, ByteString> EnumInfo =
+        public static readonly RepeatedExtension<EnumOptions, ByteString> EnumInfo =
             new RepeatedExtension<EnumOptions, ByteString>(InfoOption, FieldCodec.ForBytes(WireFormat.MakeTag(InfoOption, WireFormat.WireType.LengthDelimited)));
 
-        internal const string AnyMessageName = "google.protobuf.Any";
+        public const string AnyMessageName = "google.protobuf.Any";
 
         /***************************************************/
         /**** Properties                                ****/
@@ -91,7 +90,10 @@ namespace BH.Engine.Adapters.Protobuf
             // protoc writes the files in dependency order, which is the order BuildFromByteStrings needs.
             IReadOnlyList<FileDescriptor> files = FileDescriptor.BuildFromByteStrings(set.File.Select(f => f.ToByteString()), registry);
 
-            ProtoSchema schema = new ProtoSchema { FilePath = filePath };
+            ProtoSchema schema = new ProtoSchema
+            {
+                FilePath = filePath
+            };
             foreach (FileDescriptor file in files.Where(f => !f.Name.StartsWith("google/")))
             {
                 foreach (MessageDescriptor message in file.MessageTypes)

@@ -29,18 +29,10 @@ using System.Text;
 using BH.oM.Adapters.Protobuf;
 using BH.oM.Base;
 
-namespace BH.Engine.Adapters.Protobuf
+namespace BH.Engine.Adapters.Protobuf.Objects
 {
-    // Walks the oM types by reflection and writes .proto files, mirroring the approach of the JSONSchema_Toolkit.
-    // - Concrete classes and enums are the roots. Interfaces and abstract classes are only emitted when a property uses them.
-    // - Inheritance is flattened: each message holds all public properties, inherited ones included.
-    // - Interfaces and abstract classes become union messages with a oneof over their implementations.
-    // - Types are split into one file per assembly, or per ProtoFileGroup. Unions whose implementations live in other files
-    //   would create circular imports, so they are defined on the consumer side, given an 'Any other' slot, or skipped.
-    //   ProtoConfig.OpenUnionTypes are always google.protobuf.Any (with the any_of option naming the interface), and
-    //   ProtoConfig.ClosedUnionTypes are always the union of their own file, without an 'other' slot.
-    // - Field numbers come from the registry in the ProtoSchemaMap and are never changed once assigned.
-    internal class ProtoGenerator
+    [Description("Walks the oM types by reflection and writes .proto files, mirroring the approach of the JSONSchema_Toolkit. - Concrete classes and enums are the roots. Interfaces and abstract classes are only emitted when a property uses them. - Inheritance is flattened: each message holds all public properties, inherited ones included. - Interfaces and abstract classes become union messages with a oneof over their implementations. - Types are split into one file per assembly, or per ProtoFileGroup. Unions whose implementations live in other files   would create circular imports, so they are defined on the consumer side, given an 'Any other' slot, or skipped.   ProtoConfig.OpenUnionTypes are always google.protobuf.Any (with the any_of option naming the interface), and   ProtoConfig.ClosedUnionTypes are always the union of their own file, without an 'other' slot. - Field numbers come from the registry in the ProtoSchemaMap and are never changed once assigned.")]
+    public class ProtoGenerator
     {
         /***************************************************/
         /**** Private Classes                           ****/

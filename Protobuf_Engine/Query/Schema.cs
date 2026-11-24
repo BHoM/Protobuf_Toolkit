@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using BH.Engine.Adapters.Protobuf.Objects;
 using BH.oM.Base.Attributes;
 
 namespace BH.Engine.Adapters.Protobuf
