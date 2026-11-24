@@ -61,7 +61,7 @@ namespace BH.Engine.Adapters.Protobuf
             Dictionary<string, Dictionary<string, int>> existingNumbers = null;
             if (!string.IsNullOrWhiteSpace(existingSchemaFile))
             {
-                ProtoSchema existing = ProtoSchema.Load(existingSchemaFile);
+                ProtoSchema existing = ProtoSchema.ReadFile(existingSchemaFile);
                 if (existing == null)
                 {
                     Base.Compute.RecordError("The previous schema could not be read. Generating with it is required to keep the published field numbers.");

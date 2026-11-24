@@ -102,12 +102,12 @@ namespace BH.Engine.Adapters.Protobuf
         /***************************************************/
 
         [Description("Returns the full names of the C# classes that have a protobuf message in a schema.")]
-        [Input("schemaFile", "Path of a compiled descriptor set (.protoset). If empty, all installed schemas are used.")]
+        [Input("schemaFile", "Path of a compiled descriptor set (.protoset). If empty, all registered schemas are used: those installed and those added with AddProtobufSchema.")]
         [Output("types", "Full names of the C# classes with a protobuf message.")]
         public static List<string> TypesInSchema(string schemaFile = "")
         {
             IEnumerable<ProtoSchema> schemas = string.IsNullOrWhiteSpace(schemaFile)
-                ? ProtoSchema.Installed()
+                ? ProtoSchema.Registered()
                 : new[] { ProtoSchema.Load(schemaFile) }.Where(s => s != null);
 
             return schemas.SelectMany(s => s.MessagesByType.Keys).Distinct().OrderBy(n => n, StringComparer.Ordinal).ToList();

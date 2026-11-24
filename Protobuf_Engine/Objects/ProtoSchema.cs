@@ -107,8 +107,35 @@ namespace BH.Engine.Adapters.Protobuf
 
         /***************************************************/
 
-        // Loads a descriptor set file, cached until the file changes.
+        // A schema must match the oM assemblies loaded in the process, which cannot change during it, and published schemas
+        // never change. So each schema file is read once and kept for the rest of the process: the writer and reader, which
+        // ask for the schema on every call, never touch the file system again.
         public static ProtoSchema Load(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                return null;
+
+            if (m_ByPath.TryGetValue(filePath, out ProtoSchema schema))
+                return schema;
+
+            string fullPath = Path.GetFullPath(filePath);
+            if (!m_ByPath.TryGetValue(fullPath, out schema))
+            {
+                schema = ReadFile(fullPath);
+                if (schema == null)
+                    return null;
+
+                schema = m_ByPath.GetOrAdd(fullPath, schema); // Another thread may have read it meanwhile: keep a single instance.
+            }
+
+            m_ByPath.TryAdd(filePath, schema);
+            return schema;
+        }
+
+        /***************************************************/
+
+        // Reads a descriptor set file without caching it, e.g. for the generator, which reads the previous schema once.
+        public static ProtoSchema ReadFile(string filePath)
         {
             string fullPath = Path.GetFullPath(filePath);
             if (!File.Exists(fullPath))
@@ -117,47 +144,69 @@ namespace BH.Engine.Adapters.Protobuf
                 return null;
             }
 
-            DateTime timestamp = File.GetLastWriteTimeUtc(fullPath);
-            if (m_Cache.TryGetValue(fullPath, out (DateTime Timestamp, ProtoSchema Schema) cached) && cached.Timestamp == timestamp)
-                return cached.Schema;
-
-            ProtoSchema schema;
             try
             {
-                schema = FromBytes(File.ReadAllBytes(fullPath), fullPath);
+                return FromBytes(File.ReadAllBytes(fullPath), fullPath);
             }
             catch (Exception e)
             {
                 Base.Compute.RecordError($"{fullPath} is not a valid protobuf descriptor set: {e.Message}");
                 return null;
             }
-
-            m_Cache[fullPath] = (timestamp, schema);
-            return schema;
         }
 
         /***************************************************/
 
-        // The descriptor sets installed in the BHoM resources folder.
-        public static List<ProtoSchema> Installed()
+        /***************************************************/
+        /**** Registry                                  ****/
+        /***************************************************/
+
+        // The schemas used when no schema file is given: those installed in the BHoM resources folder, registered the first
+        // time any is needed, plus any added later with Add. Types and messages are looked up in the registry only, never by
+        // searching files. A schema added later only adds the types and messages not registered yet: it never replaces any.
+        public static List<ProtoSchema> Registered()
         {
-            return Query.InstalledSchemaFiles().Select(Load).Where(s => s != null).ToList();
+            EnsureInstalled();
+            lock (m_RegistryLock)
+                return m_Registered.ToList();
         }
 
         /***************************************************/
 
-        // The schema to use for a type: the given file, or else the installed schema holding the type.
+        // Adds a schema to the registry. Returns the number of its types already provided by a registered schema, which stay as they were.
+        public static bool Add(string filePath, out int alreadyRegistered)
+        {
+            EnsureInstalled();
+            alreadyRegistered = 0;
+            ProtoSchema schema = Load(filePath);
+            if (schema == null)
+                return false;
+
+            alreadyRegistered = Register(schema);
+            return true;
+        }
+
+        /***************************************************/
+
+        // The schema to use for a type: the given file, or else the registered schema holding the type.
         public static ProtoSchema Find(Type type, string schemaFile, bool silent = false)
         {
-            ProtoSchema schema = string.IsNullOrWhiteSpace(schemaFile)
-                ? Installed().FirstOrDefault(s => s.MessagesByType.ContainsKey(type.FullName))
-                : Load(schemaFile);
+            ProtoSchema schema;
+            if (string.IsNullOrWhiteSpace(schemaFile))
+            {
+                EnsureInstalled();
+                m_SchemaByType.TryGetValue(type.FullName, out schema);
+            }
+            else
+            {
+                schema = Load(schemaFile);
+            }
 
             if (schema == null || !schema.MessagesByType.ContainsKey(type.FullName))
             {
                 if (!silent)
                 {
-                    string source = string.IsNullOrWhiteSpace(schemaFile) ? $"the schemas installed in {Query.SchemaFolder()}" : schemaFile;
+                    string source = string.IsNullOrWhiteSpace(schemaFile) ? $"the schemas installed in {Query.SchemaFolder()} or added with AddProtobufSchema" : schemaFile;
                     Base.Compute.RecordError($"{type.FullName} has no protobuf definition in {source}.");
                 }
                 return null;
@@ -168,13 +217,56 @@ namespace BH.Engine.Adapters.Protobuf
 
         /***************************************************/
 
-        // The schema holding a protobuf message: the given file, or else the installed schema holding the message.
+        // The schema holding a protobuf message: the given file, or else the registered schema holding the message.
         public static ProtoSchema FindByMessage(string messageName, string schemaFile)
         {
             if (!string.IsNullOrWhiteSpace(schemaFile))
                 return Load(schemaFile);
 
-            return Installed().FirstOrDefault(s => s.MessagesByName.ContainsKey(messageName));
+            EnsureInstalled();
+            return m_SchemaByMessage.TryGetValue(messageName, out ProtoSchema schema) ? schema : null;
+        }
+
+        /***************************************************/
+
+        // Registers the installed schemas, once per process.
+        private static void EnsureInstalled()
+        {
+            if (m_InstalledRegistered)
+                return;
+
+            lock (m_RegistryLock)
+            {
+                if (m_InstalledRegistered)
+                    return;
+
+                foreach (string file in Query.InstalledSchemaFiles())
+                {
+                    ProtoSchema schema = Load(file);
+                    if (schema != null)
+                        Register(schema);
+                }
+
+                m_InstalledRegistered = true;
+            }
+        }
+
+        /***************************************************/
+
+        // Adds the types and messages of a schema that are not registered yet. Returns the number of types left as they were.
+        private static int Register(ProtoSchema schema)
+        {
+            lock (m_RegistryLock)
+            {
+                if (m_Registered.Contains(schema))
+                    return 0;
+
+                m_Registered.Add(schema);
+                foreach (string messageName in schema.MessagesByName.Keys)
+                    m_SchemaByMessage.TryAdd(messageName, schema);
+
+                return schema.MessagesByType.Keys.Count(typeName => !m_SchemaByType.TryAdd(typeName, schema));
+            }
         }
 
         /***************************************************/
@@ -331,7 +423,19 @@ namespace BH.Engine.Adapters.Protobuf
         /**** Private Fields                            ****/
         /***************************************************/
 
-        private static readonly ConcurrentDictionary<string, (DateTime Timestamp, ProtoSchema Schema)> m_Cache = new ConcurrentDictionary<string, (DateTime, ProtoSchema)>();
+        // Schemas read from files, by the path they were asked for with and by full path. Never re-read during the process.
+        private static readonly ConcurrentDictionary<string, ProtoSchema> m_ByPath = new ConcurrentDictionary<string, ProtoSchema>(StringComparer.OrdinalIgnoreCase);
+
+        // The registry: schemas used when no schema file is given, and the schema of each type and message.
+        private static readonly object m_RegistryLock = new object();
+
+        private static volatile bool m_InstalledRegistered;
+
+        private static readonly List<ProtoSchema> m_Registered = new List<ProtoSchema>();
+
+        private static readonly ConcurrentDictionary<string, ProtoSchema> m_SchemaByType = new ConcurrentDictionary<string, ProtoSchema>();
+
+        private static readonly ConcurrentDictionary<string, ProtoSchema> m_SchemaByMessage = new ConcurrentDictionary<string, ProtoSchema>();
 
         private static readonly ConcurrentDictionary<MessageDescriptor, string> m_CSharpTypes = new ConcurrentDictionary<MessageDescriptor, string>();
 

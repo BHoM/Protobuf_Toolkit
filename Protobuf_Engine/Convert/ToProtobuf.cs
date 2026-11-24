@@ -368,7 +368,11 @@ namespace BH.Engine.Adapters.Protobuf
             string typeName;
             byte[] content;
 
-            ProtoSchema owner = schema.MessageOf(value.GetType()) != null ? schema : ProtoSchema.Find(value.GetType(), "", true);
+            // Only BHoM objects can have a message: other values (numbers, strings, lists, dictionaries) go straight to the
+            // well-known types below, without searching the installed schemas.
+            ProtoSchema owner = schema.MessageOf(value.GetType()) != null ? schema
+                : value is IObject ? ProtoSchema.Find(value.GetType(), "", true)
+                : null;
             if (owner != null)
             {
                 MessageDescriptor message = owner.MessageOf(value.GetType());
