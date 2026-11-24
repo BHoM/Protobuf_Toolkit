@@ -630,13 +630,17 @@ namespace BH.Engine.Adapters.Protobuf
 
             HashSet<string> current = new HashSet<string>();
             m_CurrentOwner = type;
+            int firstNumber = ProtoTypes.FirstPropertyNumber(type);
+            if (firstNumber == 10 && type.GetInterfaces().Any(i => i.FullName == ProtoTypes.GeometryInterfaceName))
+                BH.Engine.Base.Compute.RecordWarning($"{type.FullName} implements both IGeometry and IBHoMObject. Geometry types are expected never to be BHoMObjects; its properties are numbered from 10.");
+
             foreach (PropertyInfo property in ProtoTypes.Properties(type))
             {
                 if (!current.Add(property.Name))
                     continue; // A property hidden with 'new' in a subclass: only the first is exchanged.
 
                 int baseIndex = ProtoTypes.BaseIndex(property.Name);
-                int number = FieldNumber(type, property.Name, baseIndex >= 0 ? baseIndex + 1 : 10);
+                int number = FieldNumber(type, property.Name, baseIndex >= 0 ? baseIndex + 1 : firstNumber);
                 m_CurrentProperty = property;
 
                 string fieldType;
