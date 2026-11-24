@@ -243,7 +243,8 @@ namespace BH.Engine.Adapters.Protobuf
                     WriteDouble(output, number, (double)m, force);
                     return true;
                 case float f:
-                    if (force || f != 0)
+                    // As for doubles, -0.0 is written: 1 / -0.0 is negative infinity.
+                    if (force || f != 0 || float.IsNegativeInfinity(1 / f))
                     {
                         output.WriteTag(number, WireFormat.WireType.Fixed32);
                         output.WriteFloat(f);
@@ -543,8 +544,8 @@ namespace BH.Engine.Adapters.Protobuf
 
         private static void WriteDouble(CodedOutputStream output, int number, double value, bool force)
         {
-            // NaN is not equal to 0, so it is always written.
-            if (force || value != 0)
+            // Only +0.0 is the default and left out. -0.0 and NaN are written, as the protobuf C++ runtime does (bitwise comparison).
+            if (force || BitConverter.DoubleToInt64Bits(value) != 0)
             {
                 output.WriteTag(number, WireFormat.WireType.Fixed64);
                 output.WriteDouble(value);
