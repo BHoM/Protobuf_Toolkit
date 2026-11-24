@@ -42,6 +42,8 @@ namespace BH.Engine.Adapters.Protobuf
         internal const string FragmentSetName = "BH.oM.Base.FragmentSet";
 
         internal const string FragmentInterfaceName = "BH.oM.Base.IFragment";
+        internal const string GeometryInterfaceName = "BH.oM.Geometry.IGeometry";
+        internal const string BHoMObjectInterfaceName = "BH.oM.Base.IBHoMObject";
 
         internal static readonly string[] BaseProperties = { "BHoM_Guid", "Name", "Fragments", "Tags", "CustomData" };
 
@@ -71,6 +73,18 @@ namespace BH.Engine.Adapters.Protobuf
 
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> m_PropertiesByName =
             new System.Collections.Concurrent.ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>>();
+
+        /***************************************************/
+
+        // First field number of the properties that are not BHoMObject base properties.
+        // Geometry types never implement IBHoMObject, so they have no base properties and start at 1.
+        // Every other type starts at 10, keeping 1-5 for the base properties and 6-9 free.
+        internal static int FirstPropertyNumber(Type type)
+        {
+            bool isGeometry = type.GetInterfaces().Any(i => i.FullName == GeometryInterfaceName);
+            bool isBHoMObject = type.GetInterfaces().Any(i => i.FullName == BHoMObjectInterfaceName);
+            return isGeometry && !isBHoMObject ? 1 : 10;
+        }
 
         /***************************************************/
 
