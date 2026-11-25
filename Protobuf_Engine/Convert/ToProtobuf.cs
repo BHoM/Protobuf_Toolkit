@@ -54,11 +54,8 @@ namespace BH.Engine.Adapters.Protobuf
                 return null;
             }
 
-            ProtoSchema schema = ProtoSchema.Find(obj.GetType(), schemaFile);
-            if (schema == null)
-                return null;
-
-            return WritePlans.Encode(WritePlans.Get(schema, obj.GetType(), schema.MessageOf(obj.GetType())), obj);
+            IMessagePlan plan = WritePlans.Get(obj.GetType(), schemaFile);
+            return plan == null ? null : WritePlans.Encode(plan, obj);
         }
 
         /***************************************************/
@@ -76,11 +73,8 @@ namespace BH.Engine.Adapters.Protobuf
                 return null;
             }
 
-            ProtoSchema schema = ProtoSchema.Find(obj.GetType(), schemaFile);
-            if (schema == null)
-                return null;
-
-            return WritePlans.EncodeAny(WritePlans.Get(schema, obj.GetType(), schema.MessageOf(obj.GetType())), obj);
+            IMessagePlan plan = WritePlans.Get(obj.GetType(), schemaFile);
+            return plan == null ? null : WritePlans.EncodeAny(plan, obj);
         }
 
         /***************************************************/

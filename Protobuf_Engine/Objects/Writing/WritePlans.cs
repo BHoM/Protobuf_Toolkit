@@ -121,6 +121,53 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         }
 
         /***************************************************/
+
+        // The plan of a C# type in a schema file ("" for the installed schemas), for ToProtobuf and ToProtobufAny: one lookup
+        // per call instead of finding the schema, then the message, then the plan. Null, with an error, when no schema defines
+        // the type. Only plans found are kept: a schema added later with AddProtobufSchema may define a type missing now, and
+        // since schemas are only ever added, never replaced, a plan found stays valid for the process.
+        public static IMessagePlan Get(Type type, string schemaFile)
+        {
+            PlansOfFile file = PlansOf(schemaFile ?? "");
+            if (file.Plans.TryGetValue(type, out IMessagePlan plan))
+                return plan;
+
+            ProtoSchema schema = ProtoSchema.Find(type, file.SchemaFile);
+            if (schema == null)
+                return null;
+
+            return file.Plans.GetOrAdd(type, Get(schema, type, schema.MessageOf(type)));
+        }
+
+        /***************************************************/
+
+        // The plans of a schema file. The last file used is kept, so repeated calls with the same path skip hashing it.
+        private static PlansOfFile PlansOf(string schemaFile)
+        {
+            PlansOfFile last = m_LastFile;
+            if (last != null && last.SchemaFile == schemaFile)
+                return last;
+
+            last = m_PlansByFile.GetOrAdd(schemaFile, f => new PlansOfFile(f));
+            m_LastFile = last;
+            return last;
+        }
+
+        /***************************************************/
+
+        private sealed class PlansOfFile
+        {
+            public PlansOfFile(string schemaFile)
+            {
+                SchemaFile = schemaFile;
+            }
+
+            public readonly string SchemaFile;
+
+            public readonly ConcurrentDictionary<Type, IMessagePlan> Plans = new ConcurrentDictionary<Type, IMessagePlan>();
+        }
+
+        /***************************************************/
         /**** Codecs                                    ****/
         /***************************************************/
 
@@ -569,6 +616,10 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         /***************************************************/
 
         private static readonly ConcurrentDictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan> m_Plans = new ConcurrentDictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan>();
+
+        private static readonly ConcurrentDictionary<string, PlansOfFile> m_PlansByFile = new ConcurrentDictionary<string, PlansOfFile>();
+
+        private static PlansOfFile m_LastFile;
 
         private static readonly Dictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan> m_Pending = new Dictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan>();
 

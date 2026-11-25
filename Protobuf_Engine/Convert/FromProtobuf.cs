@@ -61,11 +61,8 @@ namespace BH.Engine.Adapters.Protobuf
                 return null;
             }
 
-            ProtoSchema schema = ProtoSchema.Find(type, schemaFile);
-            if (schema == null)
-                return null;
-
-            return ReadPlans.Read(ReadPlans.Get(schema, type, schema.MessageOf(type)), bytes) as IObject;
+            IReadPlan plan = ReadPlans.Get(type, schemaFile);
+            return plan == null ? null : ReadPlans.Read(plan, bytes) as IObject;
         }
 
         /***************************************************/
