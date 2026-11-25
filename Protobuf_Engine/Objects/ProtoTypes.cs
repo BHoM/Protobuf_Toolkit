@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Google.Protobuf.Reflection;
 
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
@@ -168,6 +169,22 @@ namespace BH.Engine.Adapters.Protobuf.Objects
             return type == typeof(double) || type == typeof(float) || type == typeof(decimal) || type == typeof(int) || type == typeof(long)
                 || type == typeof(short) || type == typeof(byte) || type == typeof(sbyte) || type == typeof(uint) || type == typeof(ushort)
                 || type == typeof(ulong) || type == typeof(bool) || (type.IsEnum && IsOmType(type)) || type.FullName == "System.Drawing.Color";
+        }
+
+        /***************************************************/
+
+        // Whether the values of a repeated field are packed: proto3 packs numbers, bools and enums unless [packed = false].
+        // Not FieldDescriptor.IsPacked: Google.Protobuf 3.29 returns false for any field with other options, e.g. (.bhom.field_info).
+        internal static bool IsPacked(FieldDescriptor field)
+        {
+            if (!field.IsRepeated || field.IsMap)
+                return false;
+
+            if (field.FieldType == FieldType.String || field.FieldType == FieldType.Bytes || field.FieldType == FieldType.Message || field.FieldType == FieldType.Group)
+                return false;
+
+            FieldOptions options = field.ToProto().Options;
+            return options == null || !options.HasPacked || options.Packed;
         }
 
         /***************************************************/

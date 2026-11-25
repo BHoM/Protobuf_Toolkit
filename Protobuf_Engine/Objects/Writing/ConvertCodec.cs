@@ -25,8 +25,8 @@ using System.ComponentModel;
 
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
-    [Description("A value written as another type, e.g. a short as an int or an oM enum as its number.")]
-    public sealed class ConvertCodec<V, U> : Codec<V>
+    [Description("A value written as another type, e.g. a short as an int or an oM enum as its number. Packable when the codec of the other type is.")]
+    public sealed class ConvertCodec<V, U> : Codec<V>, IPackableCodec<V>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -36,6 +36,7 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         {
             m_Convert = convert;
             m_Inner = inner;
+            m_Packable = inner as IPackableCodec<U>;
         }
 
         /***************************************************/
@@ -53,12 +54,25 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         }
 
         /***************************************************/
+
+        public int ValueSize(V value) => m_Packable.ValueSize(m_Convert(value));
+
+        /***************************************************/
+
+        public void WriteValue(V value, WriteContext context)
+        {
+            m_Packable.WriteValue(m_Convert(value), context);
+        }
+
+        /***************************************************/
         /**** Private Fields                            ****/
         /***************************************************/
 
         private readonly Func<V, U> m_Convert;
 
         private readonly Codec<U> m_Inner;
+
+        private readonly IPackableCodec<U> m_Packable;
 
         /***************************************************/
     }

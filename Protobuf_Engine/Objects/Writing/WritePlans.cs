@@ -161,7 +161,12 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                     return New(typeof(NestedRepeatedCodec<,>).MakeGenericType(type, itemType), field.FieldNumber, itemsCodec);
                 }
 
-                return New(typeof(RepeatedCodec<,>).MakeGenericType(type, itemType), CreateCodec(itemType, field, true, schema));
+                // proto3 packs repeated numbers, bools and enums: one field holding all the values without their tags.
+                ICodec item = CreateCodec(itemType, field, true, schema);
+                if (ProtoTypes.IsPacked(field) && typeof(IPackableCodec<>).MakeGenericType(itemType).IsInstanceOfType(item))
+                    return New(typeof(PackedRepeatedCodec<,>).MakeGenericType(type, itemType), field.FieldNumber, item);
+
+                return New(typeof(RepeatedCodec<,>).MakeGenericType(type, itemType), item);
             }
 
             if (ProtoTypes.IsAnyValue(type))
@@ -246,9 +251,11 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         /***************************************************/
 
         // google.protobuf.Any { string type_url = 1; bytes value = 2; }
+        // An empty value, i.e. a message with nothing set, is left out as the proto3 default, as Google's Any.Pack does.
         public static int AnyEnvelopeSize(string url, int inner)
         {
-            return m_TypeUrlTagSize + CodedOutputStream.ComputeStringSize(url) + m_ValueTagSize + CodedOutputStream.ComputeLengthSize(inner) + inner;
+            int size = m_TypeUrlTagSize + CodedOutputStream.ComputeStringSize(url);
+            return inner == 0 ? size : size + m_ValueTagSize + CodedOutputStream.ComputeLengthSize(inner) + inner;
         }
 
         /***************************************************/
@@ -258,6 +265,9 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         {
             context.Output.WriteTag(m_TypeUrlTag);
             context.Output.WriteString(url);
+            if (inner == 0)
+                return;
+
             context.Output.WriteTag(m_ValueTag);
             context.Output.WriteLength(inner);
         }
@@ -308,7 +318,9 @@ namespace BH.Engine.Adapters.Protobuf.Objects
             {
                 output.WriteTag(1, WireFormat.WireType.LengthDelimited);
                 output.WriteString(ProtoTypes.TypeUrlPrefix + typeName);
-                WriteBytes(output, 2, content);
+                // An empty value, e.g. an empty Struct, is left out as the proto3 default, as Google's Any.Pack does.
+                if (content.Length > 0)
+                    WriteBytes(output, 2, content);
             });
         }
 

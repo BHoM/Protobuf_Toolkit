@@ -29,7 +29,7 @@ using Google.Protobuf.Reflection;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a uint32 field.")]
-    public sealed class UInt32Codec : TaggedCodec<uint>
+    public sealed class UInt32Codec : TaggedCodec<uint>, IPackableCodec<uint>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -55,6 +55,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteUInt32(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(uint value) => CodedOutputStream.ComputeUInt32Size(value);
+
+        /***************************************************/
+
+        public void WriteValue(uint value, WriteContext context)
+        {
+            context.Output.WriteUInt32(value);
         }
 
         /***************************************************/

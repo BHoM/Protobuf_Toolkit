@@ -29,7 +29,7 @@ using Google.Protobuf.Reflection;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a fixed32 field, e.g. a colour as ARGB.")]
-    public sealed class Fixed32Codec : TaggedCodec<uint>
+    public sealed class Fixed32Codec : TaggedCodec<uint>, IPackableCodec<uint>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -55,6 +55,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteFixed32(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(uint value) => 4;
+
+        /***************************************************/
+
+        public void WriteValue(uint value, WriteContext context)
+        {
+            context.Output.WriteFixed32(value);
         }
 
         /***************************************************/

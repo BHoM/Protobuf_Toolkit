@@ -29,7 +29,7 @@ using Google.Protobuf.Reflection;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a uint64 field.")]
-    public sealed class UInt64Codec : TaggedCodec<ulong>
+    public sealed class UInt64Codec : TaggedCodec<ulong>, IPackableCodec<ulong>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -55,6 +55,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteUInt64(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(ulong value) => CodedOutputStream.ComputeUInt64Size(value);
+
+        /***************************************************/
+
+        public void WriteValue(ulong value, WriteContext context)
+        {
+            context.Output.WriteUInt64(value);
         }
 
         /***************************************************/

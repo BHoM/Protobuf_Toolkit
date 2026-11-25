@@ -29,7 +29,7 @@ using Google.Protobuf.Reflection;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a float field. Only +0.0 is left out as the default: -0.0 and NaN are written.")]
-    public sealed class FloatCodec : TaggedCodec<float>
+    public sealed class FloatCodec : TaggedCodec<float>, IPackableCodec<float>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -55,6 +55,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteFloat(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(float value) => 4;
+
+        /***************************************************/
+
+        public void WriteValue(float value, WriteContext context)
+        {
+            context.Output.WriteFloat(value);
         }
 
         /***************************************************/

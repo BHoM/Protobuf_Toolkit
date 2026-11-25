@@ -29,7 +29,7 @@ using Google.Protobuf.Reflection;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a bool field.")]
-    public sealed class BoolCodec : TaggedCodec<bool>
+    public sealed class BoolCodec : TaggedCodec<bool>, IPackableCodec<bool>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -55,6 +55,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteBool(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(bool value) => 1;
+
+        /***************************************************/
+
+        public void WriteValue(bool value, WriteContext context)
+        {
+            context.Output.WriteBool(value);
         }
 
         /***************************************************/

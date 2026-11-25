@@ -27,7 +27,7 @@ using Google.Protobuf;
 namespace BH.Engine.Adapters.Protobuf.Objects
 {
     [Description("Writes a double field. Only +0.0 is left out as the default: -0.0 and NaN are written.")]
-    public sealed class DoubleCodec : TaggedCodec<double>
+    public sealed class DoubleCodec : TaggedCodec<double>, IPackableCodec<double>
     {
         /***************************************************/
         /**** Constructors                              ****/
@@ -53,6 +53,17 @@ namespace BH.Engine.Adapters.Protobuf.Objects
                 context.Output.WriteTag(Tag);
                 context.Output.WriteDouble(value);
             }
+        }
+
+        /***************************************************/
+
+        public int ValueSize(double value) => 8;
+
+        /***************************************************/
+
+        public void WriteValue(double value, WriteContext context)
+        {
+            context.Output.WriteDouble(value);
         }
 
         /***************************************************/
