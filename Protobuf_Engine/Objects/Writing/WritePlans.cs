@@ -563,8 +563,9 @@ namespace BH.Engine.Adapters.Protobuf.Objects
             if (bytes == null)
                 return;
 
+            // The bytes come from Encode and are never changed afterwards, so they are written without a copy.
             output.WriteTag(number, WireFormat.WireType.LengthDelimited);
-            output.WriteBytes(ByteString.CopyFrom(bytes));
+            output.WriteBytes(UnsafeByteOperations.UnsafeWrap(bytes));
         }
 
         /***************************************************/
@@ -573,7 +574,8 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                CodedOutputStream output = new CodedOutputStream(stream);
+                // A small buffer: these are mostly a few bytes each, and the default buffer is 4 KB.
+                CodedOutputStream output = new CodedOutputStream(stream, EncodeBufferSize);
                 write(output);
                 output.Flush();
                 return stream.ToArray();
@@ -624,6 +626,8 @@ namespace BH.Engine.Adapters.Protobuf.Objects
         private static readonly Dictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan> m_Pending = new Dictionary<(ProtoSchema, Type, MessageDescriptor), IMessagePlan>();
 
         private static readonly object m_Lock = new object();
+
+        private const int EncodeBufferSize = 128;
 
         private static int m_Depth = 0;
 
